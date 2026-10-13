@@ -1,8 +1,10 @@
 {
-  "name": "kaadas",
+  "name": "Kaadas 凯迪仕门锁",
   "content_in_root": false,
-  "country": ["CN"],
-  "homeassistant": "2024.1.0",
+  "country": [
+    "CN"
+  ],
+  "homeassistant": "2025.8.0",
   "render_readme": true,
   "iot_class": "Cloud Polling"
 }

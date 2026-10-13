@@ -1,0 +1,148 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect Kaadas account",
+        "description": "Enter the token (request header) and uid (findAllBindDevice body) captured from the Kaadas app.",
+        "data": {
+          "token": "Token",
+          "uid": "uid",
+          "user_agent": "User-Agent",
+          "phone_name": "Phone name"
+        }
+      },
+      "device": {
+        "title": "Choose lock",
+        "data": {
+          "wifi_sn": "Lock"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Token expired",
+        "description": "Capture a new token from the Kaadas app.",
+        "data": {
+          "token": "Token"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Invalid or expired token",
+      "cannot_connect": "Cannot connect to Kaadas cloud",
+      "no_devices": "No Wi-Fi lock on this account",
+      "device_not_found": "The lock is not on this account"
+    },
+    "abort": {
+      "already_configured": "Lock already configured",
+      "reauth_successful": "Token updated"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Polling",
+        "data": {
+          "scan_interval": "Record poll interval (s)",
+          "info_interval": "Device info interval (s)",
+          "image_rotation": "Snapshot rotation (clockwise)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "camera": {
+      "snapshot": {
+        "name": "Door snapshot"
+      }
+    },
+    "event": {
+      "doorbell": {
+        "name": "Doorbell",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "ring": "Ring"
+            }
+          }
+        }
+      },
+      "loitering": {
+        "name": "Loitering",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "loitering": "Loitering"
+            }
+          }
+        }
+      },
+      "lock_activity": {
+        "name": "Lock activity",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "unlocked": "Unlocked",
+              "locked": "Locked"
+            }
+          }
+        }
+      },
+      "alarm": {
+        "name": "Lock alarm",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "bolt_jammed": "Bolt jammed",
+              "alarm": "Other alarm"
+            }
+          }
+        }
+      }
+    },
+    "sensor": {
+      "battery": {
+        "name": "Battery"
+      },
+      "last_activity": {
+        "name": "Last activity"
+      },
+      "last_unlocked_by": {
+        "name": "Last unlocked by"
+      },
+      "last_unlock_time": {
+        "name": "Last unlock"
+      },
+      "last_doorbell": {
+        "name": "Last doorbell"
+      },
+      "last_loitering": {
+        "name": "Last loitering"
+      },
+      "wifi_ssid": {
+        "name": "Wi-Fi SSID"
+      },
+      "camera_firmware": {
+        "name": "Camera firmware"
+      }
+    },
+    "lock": {
+      "lock": {
+        "name": "Lock"
+      }
+    }
+  },
+  "exceptions": {
+    "read_only_lock": {
+      "message": "This integration is read-only and cannot lock or unlock the door"
+    }
+  },
+  "selector": {
+    "image_rotation": {
+      "options": {
+        "0": "None",
+        "90": "90°",
+        "180": "180°",
+        "270": "270°"
+      }
+    }
+  }
+}
