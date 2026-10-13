@@ -43,8 +43,10 @@
         "data": {
           "scan_interval": "记录轮询间隔（秒）",
           "info_interval": "设备信息刷新间隔（秒）",
-          "image_rotation": "抓拍图旋转（顺时针）"
-        }
+          "image_rotation": "抓拍图旋转（顺时针）",
+          "push": "实时推送（MQTT）"
+        },
+        "description": "实时推送和手机 App 使用相同的客户端 ID：HA 和手机用同一个账号时会互相挤掉线。建议注册一个新账号，把门锁分享给它，专门给 HA 用。"
       }
     }
   },

@@ -21,6 +21,7 @@ CONF_PHONE_NAME = "phone_name"
 CONF_SCAN_INTERVAL = "scan_interval"
 CONF_INFO_INTERVAL = "info_interval"
 CONF_IMAGE_ROTATION = "image_rotation"
+CONF_PUSH = "push"
 
 DEFAULT_USER_AGENT = "KaadasLock/6.19.3 (iPhone; iOS 27.0.1; Scale/3.00)"
 DEFAULT_PHONE_NAME = "iPhone"
@@ -56,6 +57,19 @@ VISIT_TYPE_DOORBELL = 96
 # 报警记录 type
 ALARM_TYPE_LOITERING = 113
 ALARM_TYPE_BOLT_JAMMED = 32
+
+# 实时推送（MQTT）。客户端 ID 和手机 App 相同，同一账号两边同时在线会互相挤掉，默认关闭
+MQTT_HOST = "appmq.kaadas.com"
+MQTT_PORT = 5883
+MQTT_KEEPALIVE = 60
+DEFAULT_PUSH = False
+
+# 收到推送后，在这段时间内每隔 BURST_INTERVAL 秒轮询一次，等记录和抓拍图出现
+BURST_DURATION = 30
+BURST_INTERVAL = 3
+
+# 带抓拍图的新事件，图还没上传好时最多等这么久再触发，避免 HomeKit 通知里是上一张图
+SNAPSHOT_WAIT = 25
 
 # 记录时间早于这个秒数的，视为历史记录，只标记已读，不触发事件
 EVENT_MAX_AGE = 15 * 60

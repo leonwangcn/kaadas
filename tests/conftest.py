@@ -61,6 +61,12 @@ def mock_cloud(aioclient_mock: AiohttpClientMocker, responses: dict[str, Any]) -
     )
 
 
+def mock_image_404(aioclient_mock: AiohttpClientMocker, image_url: str) -> None:
+    """这张图还没上传好：优先于通用图片 mock 返回 404。"""
+    aioclient_mock.get(image_url, status=404)
+    aioclient_mock._mocks.insert(0, aioclient_mock._mocks.pop())
+
+
 def new_record(category: str, rtype: int, text: str, **extra: Any) -> dict[str, Any]:
     """造一条刚刚发生的记录。"""
     now = int(time.time())

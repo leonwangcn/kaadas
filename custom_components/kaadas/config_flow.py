@@ -25,6 +25,7 @@ from .const import (
     CONF_IMAGE_ROTATION,
     CONF_INFO_INTERVAL,
     CONF_PHONE_NAME,
+    CONF_PUSH,
     CONF_SCAN_INTERVAL,
     CONF_TOKEN,
     CONF_UID,
@@ -33,6 +34,7 @@ from .const import (
     DEFAULT_IMAGE_ROTATION,
     DEFAULT_INFO_INTERVAL,
     DEFAULT_PHONE_NAME,
+    DEFAULT_PUSH,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_USER_AGENT,
     DOMAIN,
@@ -183,6 +185,7 @@ class KaadasOptionsFlow(OptionsFlowWithReload):
                         CONF_INFO_INTERVAL,
                         default=options.get(CONF_INFO_INTERVAL, DEFAULT_INFO_INTERVAL),
                     ): vol.All(int, vol.Range(min=60, max=86400)),
+                    vol.Required(CONF_PUSH, default=options.get(CONF_PUSH, DEFAULT_PUSH)): bool,
                     vol.Required(
                         CONF_IMAGE_ROTATION,
                         default=str(options.get(CONF_IMAGE_ROTATION, DEFAULT_IMAGE_ROTATION)),

@@ -43,8 +43,10 @@
         "data": {
           "scan_interval": "Record poll interval (s)",
           "info_interval": "Device info interval (s)",
-          "image_rotation": "Snapshot rotation (clockwise)"
-        }
+          "image_rotation": "Snapshot rotation (clockwise)",
+          "push": "Real-time push (MQTT)"
+        },
+        "description": "Real-time push uses the same client ID as the phone app: if Home Assistant and the phone use the same account, they will kick each other offline. Share the lock to a dedicated account for Home Assistant."
       }
     }
   },

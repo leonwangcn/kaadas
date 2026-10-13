@@ -47,4 +47,9 @@ async def async_get_config_entry_diagnostics(
         "options": dict(entry.options),
         "data": async_redact_data(asdict(data), TO_REDACT),
         "snapshot_cached": coordinator.snapshot_image is not None,
+        "push_enabled": coordinator.push is not None,
+        "push_connected": bool(coordinator.push and coordinator.push.connected),
+        "update_interval": coordinator.update_interval.total_seconds()
+        if coordinator.update_interval
+        else None,
     }

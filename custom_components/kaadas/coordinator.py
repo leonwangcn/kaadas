@@ -10,7 +10,7 @@ from datetime import timedelta
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -19,15 +19,21 @@ from .api import KaadasApi, KaadasAuthError, KaadasError
 from .const import (
     ALARM_TYPE_BOLT_JAMMED,
     ALARM_TYPE_LOITERING,
+    BURST_DURATION,
+    BURST_INTERVAL,
     DOMAIN,
     EVENT_MAX_AGE,
     OP_TYPE_LOCK,
     OP_TYPE_UNLOCK,
     SEEN_IDS_LIMIT,
+    SNAPSHOT_WAIT,
     STORAGE_VERSION,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# MQTT 推送里门锁醒来时的状态上报
+EVENT_TYPE_LOCK_INFO = "lockInf"
 
 # 事件种类
 KIND_DOORBELL = "doorbell"
@@ -156,6 +162,10 @@ class KaadasCoordinator(DataUpdateCoordinator[KaadasData]):
         self._seq = 0
         self.snapshot_image: bytes | None = None
         self.snapshot_event_id: str | None = None
+        self._normal_interval = timedelta(seconds=scan_interval)
+        self._burst_until = 0.0
+        self._waiting_snapshot = False
+        self.push: Any = None
 
     async def async_load(self) -> None:
         """读取上次运行记下的已处理 id，避免重启后重复推送。"""
@@ -176,14 +186,16 @@ class KaadasCoordinator(DataUpdateCoordinator[KaadasData]):
         except KaadasError as err:
             raise UpdateFailed(str(err)) from err
 
-        new_events = self._collect_new_events(
-            {"operation": operations, "visit": visits, "alarm": alarms}
-        )
-
+        # 先下载抓拍图，再判断新事件：门铃事件触发时摄像头里必须已经是这次的图
         snapshots = [r for r in visits + alarms if r.get("thumbUrl")]
         last_snapshot = max(snapshots, key=record_time) if snapshots else None
         if last_snapshot:
             await self._async_update_snapshot(last_snapshot)
+
+        new_events = self._collect_new_events(
+            {"operation": operations, "visit": visits, "alarm": alarms}
+        )
+        self._adjust_interval()
 
         self._seq += 1
         return KaadasData(
@@ -209,12 +221,35 @@ class KaadasCoordinator(DataUpdateCoordinator[KaadasData]):
         self._device_fetched_at = now
         return device
 
+    @callback
+    def async_handle_push(self, event_type: str) -> None:
+        """收到本门锁的推送：马上轮询，并在接下来一段时间里加快轮询。"""
+        _LOGGER.debug("收到实时推送：%s", event_type)
+        if event_type == EVENT_TYPE_LOCK_INFO:
+            # 门锁醒来上报状态，电量等设备信息可能变了
+            self._device_fetched_at = 0.0
+        self._burst_until = time.monotonic() + BURST_DURATION
+        self.hass.async_create_task(self.async_request_refresh())
+
+    def _adjust_interval(self) -> None:
+        fast = self._waiting_snapshot or time.monotonic() < self._burst_until
+        self.update_interval = timedelta(seconds=BURST_INTERVAL) if fast else self._normal_interval
+
+    def _snapshot_pending(self, record: dict[str, Any], now: float) -> bool:
+        """带图的记录，图还没下载到并且还在等待期内。"""
+        if not record.get("thumbUrl"):
+            return False
+        if now - record_time(record) > SNAPSHOT_WAIT:
+            return False
+        return self.snapshot_event_id != str(record.get("eventId") or record_id(record))
+
     def _collect_new_events(
         self, records_by_category: dict[str, list[dict[str, Any]]]
     ) -> list[KaadasEvent]:
         now = time.time()
         events: list[KaadasEvent] = []
         changed = False
+        self._waiting_snapshot = False
         for category, records in records_by_category.items():
             first_time = category not in self._seen
             seen = self._seen.setdefault(category, [])
@@ -223,6 +258,10 @@ class KaadasCoordinator(DataUpdateCoordinator[KaadasData]):
             for record in sorted(records, key=record_time):
                 rid = record_id(record)
                 if rid in seen_set:
+                    continue
+                if not first_time and self._snapshot_pending(record, now):
+                    # 不标记已处理，下一轮图好了再触发
+                    self._waiting_snapshot = True
                     continue
                 seen.append(rid)
                 seen_set.add(rid)

@@ -23,7 +23,7 @@ from custom_components.kaadas.const import (
     VISIT_TYPE_DOORBELL,
 )
 
-from .conftest import IMAGE, mock_cloud, new_record, url
+from .conftest import IMAGE, mock_cloud, mock_image_404, new_record, url
 
 
 async def _setup(hass, config_entry):
@@ -183,10 +183,7 @@ async def test_snapshot_retried_when_not_uploaded(
     record = new_record("visit", VISIT_TYPE_DOORBELL, "有人按门铃", eventId="ev_slow")
     responses["visits"]["data"].insert(0, record)
     mock_cloud(aioclient_mock, responses)
-    aioclient_mock._mocks.insert(
-        0,
-        type(aioclient_mock._mocks[-1])("GET", record["thumbUrl"], 404, b""),
-    )
+    mock_image_404(aioclient_mock, record["thumbUrl"])
     await _poll(hass, freezer)
     coordinator = config_entry.runtime_data
     assert coordinator.snapshot_event_id != "ev_slow"
