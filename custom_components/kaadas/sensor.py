@@ -1,170 +1,126 @@
+"""传感器：电量、最近动态、最近开锁人、最近门铃/徘徊时间、固件信息。"""
+
 from __future__ import annotations
 
-from homeassistant.components.sensor import SensorEntity
-from homeassistant.config_entries import ConfigEntry
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import datetime
+from typing import Any
+
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorEntityDescription,
+    SensorStateClass,
+)
+from homeassistant.const import PERCENTAGE, EntityCategory
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
+from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
-
-
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback) -> None:
-    data = hass.data[DOMAIN][entry.entry_id]
-    entities = [
-        KaadasLockEventSensor(data["lock_event"], entry),
-        KaadasDoorbellSensor(data["doorbell"], entry),
-        KaadasBatterySensor(data["device_info"], entry),
-        KaadasWifiSensor(data["device_info"], entry),
-        KaadasOpenCountSensor(data["device_info"], entry),
-        KaadasLockNameSensor(data["device_info"], entry),
-        KaadasAdminSensor(data["device_info"], entry),
-    ]
-    async_add_entities(entities)
+from .coordinator import KaadasConfigEntry, KaadasCoordinator, KaadasData
+from .entity import KaadasEntity
+from .event import event_attributes
 
 
-class KaadasCoordinatorSensor(CoordinatorEntity):
-    def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator)
-        self._entry = entry
-
-    @property
-    def should_poll(self) -> bool:
-        return False
-
-    @property
-    def device_info(self):
-        return {
-            "identifiers": {(DOMAIN, self._entry.entry_id)},
-            "name": "凯迪仕门锁",
-            "manufacturer": "Kaadas",
-        }
+def _timestamp(record: dict[str, Any] | None) -> datetime | None:
+    if not record or not record.get("time"):
+        return None
+    return dt_util.utc_from_timestamp(int(record["time"]))
 
 
-class KaadasLockEventSensor(KaadasCoordinatorSensor, SensorEntity):
-    _attr_name = "上次开锁方式"
-    _attr_icon = "mdi:lock"
-
-    def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry)
-
-    @property
-    def unique_id(self) -> str:
-        return f"{self._entry.entry_id}_lock_event"
-
-    @property
-    def native_value(self):
-        return self.coordinator.data.get("last_text_content")
-
-    @property
-    def extra_state_attributes(self):
-        return {
-            "time": self.coordinator.data.get("last_time"),
-            "pwd_num": self.coordinator.data.get("last_pwd_num"),
-            "pwd_nickname": self.coordinator.data.get("last_pwd_nickname"),
-        }
+def _int(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
 
 
-class KaadasDoorbellSensor(KaadasCoordinatorSensor, SensorEntity):
-    _attr_name = "门铃记录"
-    _attr_icon = "mdi:doorbell"
-
-    def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry)
-
-    @property
-    def unique_id(self) -> str:
-        return f"{self._entry.entry_id}_doorbell"
-
-    @property
-    def native_value(self):
-        return self.coordinator.data.get("text_content")
-
-    @property
-    def extra_state_attributes(self):
-        return {
-            "time": self.coordinator.data.get("time"),
-            "event_id": self.coordinator.data.get("event_id"),
-            "thumb_url": self.coordinator.data.get("thumb_url"),
-        }
+@dataclass(frozen=True, kw_only=True)
+class KaadasSensorDescription(SensorEntityDescription):
+    value_fn: Callable[[KaadasData], Any]
+    attrs_fn: Callable[[KaadasData], dict[str, Any]] | None = None
 
 
-class KaadasBatterySensor(KaadasCoordinatorSensor, SensorEntity):
-    _attr_name = "电量"
-    _attr_icon = "mdi:battery"
-    _attr_native_unit_of_measurement = "%"
+SENSOR_DESCRIPTIONS: tuple[KaadasSensorDescription, ...] = (
+    KaadasSensorDescription(
+        key="battery",
+        device_class=SensorDeviceClass.BATTERY,
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=lambda d: _int(d.device.get("power")),
+    ),
+    KaadasSensorDescription(
+        key="last_activity",
+        value_fn=lambda d: (d.last_operation or {}).get("textContent"),
+        attrs_fn=lambda d: event_attributes(d.last_operation) if d.last_operation else {},
+    ),
+    KaadasSensorDescription(
+        key="last_unlocked_by",
+        value_fn=lambda d: (
+            (d.last_unlock or {}).get("userNickname") or (d.last_unlock or {}).get("pwdNickname")
+        ),
+        attrs_fn=lambda d: event_attributes(d.last_unlock) if d.last_unlock else {},
+    ),
+    KaadasSensorDescription(
+        key="last_unlock_time",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=lambda d: _timestamp(d.last_unlock),
+    ),
+    KaadasSensorDescription(
+        key="last_doorbell",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=lambda d: _timestamp(d.last_doorbell),
+    ),
+    KaadasSensorDescription(
+        key="last_loitering",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=lambda d: _timestamp(d.last_loitering),
+    ),
+    KaadasSensorDescription(
+        key="wifi_ssid",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda d: d.device.get("wifiName"),
+    ),
+    KaadasSensorDescription(
+        key="camera_firmware",
+        entity_category=EntityCategory.DIAGNOSTIC,
+        value_fn=lambda d: d.device.get("camera_version"),
+        attrs_fn=lambda d: {
+            "wifi": d.device.get("wifiVersion"),
+            "mcu": d.device.get("mcu_version"),
+            "front_panel": d.device.get("frontPanelVersion"),
+            "back_panel": d.device.get("backPanelVersion"),
+            "face": d.device.get("faceVersion"),
+        },
+    ),
+)
 
-    def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry)
 
-    @property
-    def unique_id(self) -> str:
-        return f"{self._entry.entry_id}_battery"
-
-    @property
-    def native_value(self):
-        return self.coordinator.data.get("power")
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: KaadasConfigEntry,
+    async_add_entities: AddConfigEntryEntitiesCallback,
+) -> None:
+    coordinator = entry.runtime_data
+    async_add_entities(KaadasSensor(coordinator, d) for d in SENSOR_DESCRIPTIONS)
 
 
-class KaadasWifiSensor(KaadasCoordinatorSensor, SensorEntity):
-    _attr_name = "WiFi名称"
-    _attr_icon = "mdi:wifi"
+class KaadasSensor(KaadasEntity, SensorEntity):
+    entity_description: KaadasSensorDescription
 
-    def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry)
+    def __init__(
+        self, coordinator: KaadasCoordinator, description: KaadasSensorDescription
+    ) -> None:
+        super().__init__(coordinator, description.key)
+        self.entity_description = description
 
     @property
-    def unique_id(self) -> str:
-        return f"{self._entry.entry_id}_wifi"
+    def native_value(self) -> Any:
+        return self.entity_description.value_fn(self.coordinator.data)
 
     @property
-    def native_value(self):
-        return self.coordinator.data.get("wifi_name")
-
-
-class KaadasOpenCountSensor(KaadasCoordinatorSensor, SensorEntity):
-    _attr_name = "开锁计数"
-    _attr_icon = "mdi:counter"
-
-    def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry)
-
-    @property
-    def unique_id(self) -> str:
-        return f"{self._entry.entry_id}_open_count"
-
-    @property
-    def native_value(self):
-        return self.coordinator.data.get("open_count")
-
-
-class KaadasLockNameSensor(KaadasCoordinatorSensor, SensorEntity):
-    _attr_name = "门锁名称"
-    _attr_icon = "mdi:lock"
-
-    def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry)
-
-    @property
-    def unique_id(self) -> str:
-        return f"{self._entry.entry_id}_lock_name"
-
-    @property
-    def native_value(self):
-        return self.coordinator.data.get("lock_nickname")
-
-
-class KaadasAdminSensor(KaadasCoordinatorSensor, SensorEntity):
-    _attr_name = "管理员"
-    _attr_icon = "mdi:account"
-
-    def __init__(self, coordinator, entry: ConfigEntry) -> None:
-        super().__init__(coordinator, entry)
-
-    @property
-    def unique_id(self) -> str:
-        return f"{self._entry.entry_id}_admin"
-
-    @property
-    def native_value(self):
-        return self.coordinator.data.get("admin_name")
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        if self.entity_description.attrs_fn is None:
+            return None
+        return self.entity_description.attrs_fn(self.coordinator.data)

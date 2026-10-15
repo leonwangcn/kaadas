@@ -1,0 +1,150 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "连接凯迪仕账号",
+        "description": "填写凯迪仕 App 抓包得到的 token（请求头）和 uid（findAllBindDevice 请求体）。账号下的门锁会自动列出。",
+        "data": {
+          "token": "Token",
+          "uid": "uid",
+          "user_agent": "User-Agent",
+          "phone_name": "手机型号 (phoneName)"
+        }
+      },
+      "device": {
+        "title": "选择门锁",
+        "data": {
+          "wifi_sn": "门锁"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Token 已失效",
+        "description": "请重新抓包，填入新的 token。",
+        "data": {
+          "token": "Token"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Token 无效或已过期",
+      "cannot_connect": "无法连接凯迪仕云端",
+      "no_devices": "账号下没有 Wi-Fi 门锁",
+      "device_not_found": "这个 token 对应的账号下找不到原来的门锁"
+    },
+    "abort": {
+      "already_configured": "这把门锁已经添加过了",
+      "reauth_successful": "Token 已更新"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "轮询设置",
+        "data": {
+          "scan_interval": "记录轮询间隔（秒）",
+          "info_interval": "设备信息刷新间隔（秒）",
+          "image_rotation": "抓拍图旋转（顺时针）",
+          "push": "实时推送（MQTT）"
+        },
+        "description": "实时推送和手机 App 使用相同的客户端 ID：HA 和手机用同一个账号时会互相挤掉线。建议注册一个新账号，把门锁分享给它，专门给 HA 用。"
+      }
+    }
+  },
+  "entity": {
+    "camera": {
+      "snapshot": {
+        "name": "门口抓拍"
+      }
+    },
+    "event": {
+      "doorbell": {
+        "name": "门铃",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "ring": "有人按门铃"
+            }
+          }
+        }
+      },
+      "loitering": {
+        "name": "徘徊报警",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "loitering": "有人徘徊"
+            }
+          }
+        }
+      },
+      "lock_activity": {
+        "name": "开关锁",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "unlocked": "开锁",
+              "locked": "上锁"
+            }
+          }
+        }
+      },
+      "alarm": {
+        "name": "门锁报警",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "bolt_jammed": "锁舌异常",
+              "alarm": "其他报警"
+            }
+          }
+        }
+      }
+    },
+    "sensor": {
+      "battery": {
+        "name": "电量"
+      },
+      "last_activity": {
+        "name": "最近动态"
+      },
+      "last_unlocked_by": {
+        "name": "最近开锁人"
+      },
+      "last_unlock_time": {
+        "name": "最近开锁时间"
+      },
+      "last_doorbell": {
+        "name": "最近门铃"
+      },
+      "last_loitering": {
+        "name": "最近徘徊"
+      },
+      "wifi_ssid": {
+        "name": "Wi-Fi 名称"
+      },
+      "camera_firmware": {
+        "name": "猫眼固件"
+      }
+    },
+    "lock": {
+      "lock": {
+        "name": "门锁"
+      }
+    }
+  },
+  "exceptions": {
+    "read_only_lock": {
+      "message": "凯迪仕集成是只读的，不能远程开锁或上锁"
+    }
+  },
+  "selector": {
+    "image_rotation": {
+      "options": {
+        "0": "不旋转",
+        "90": "90°（竖装猫眼）",
+        "180": "180°",
+        "270": "270°"
+      }
+    }
+  }
+}
