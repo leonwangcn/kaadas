@@ -105,11 +105,29 @@ async def test_reauth_updates_token(hass: HomeAssistant, aioclient_mock, respons
     assert result["step_id"] == "reauth_confirm"
 
     result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], {CONF_TOKEN: "new-token"}
+        result["flow_id"], {CONF_TOKEN: "new-token", CONF_UID: UID}
     )
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reauth_successful"
     assert config_entry.data[CONF_TOKEN] == "new-token"
+    assert config_entry.data[CONF_UID] == UID
+
+
+async def test_reauth_switches_account(
+    hass: HomeAssistant, aioclient_mock, responses, config_entry
+):
+    """门锁分享给 HA 专用账号后，重新认证时同时换 token 和 uid。"""
+    config_entry.add_to_hass(hass)
+    mock_cloud(aioclient_mock, responses)
+    result = await config_entry.start_reauth_flow(hass)
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_TOKEN: " other-token ", CONF_UID: " other-uid "}
+    )
+    assert result["reason"] == "reauth_successful"
+    assert config_entry.data[CONF_TOKEN] == "other-token"
+    assert config_entry.data[CONF_UID] == "other-uid"
+    assert config_entry.unique_id == "K2MTEST000001"
 
 
 async def test_options_flow(hass: HomeAssistant, aioclient_mock, responses, config_entry):

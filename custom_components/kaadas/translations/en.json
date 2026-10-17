@@ -19,9 +19,10 @@
       },
       "reauth_confirm": {
         "title": "Token expired",
-        "description": "Capture a new token from the Kaadas app.",
+        "description": "Capture a new token from the Kaadas app. If you switch to another account (e.g. one dedicated to Home Assistant), also enter that account's uid.",
         "data": {
-          "token": "Token"
+          "token": "Token",
+          "uid": "uid"
         }
       }
     },

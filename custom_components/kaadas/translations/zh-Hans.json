@@ -19,9 +19,10 @@
       },
       "reauth_confirm": {
         "title": "Token 已失效",
-        "description": "请重新抓包，填入新的 token。",
+        "description": "请重新抓包，填入新的 token。换成另一个账号（例如专门给 HA 用的账号）时，uid 也要改成新账号的。",
         "data": {
-          "token": "Token"
+          "token": "Token",
+          "uid": "uid"
         }
       }
     },
