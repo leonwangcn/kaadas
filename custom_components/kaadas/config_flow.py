@@ -146,7 +146,12 @@ class KaadasConfigFlow(ConfigFlow, domain=DOMAIN):
         entry = self._get_reauth_entry()
         errors: dict[str, str] = {}
         if user_input is not None:
-            new_data = {**entry.data, CONF_TOKEN: user_input[CONF_TOKEN].strip()}
+            # 换成另一个账号（门锁分享给 HA 专用账号）时 uid 也要跟着换
+            new_data = {
+                **entry.data,
+                CONF_TOKEN: user_input[CONF_TOKEN].strip(),
+                CONF_UID: user_input[CONF_UID].strip(),
+            }
             devices, error = await self._async_fetch_devices(new_data)
             if error:
                 errors["base"] = error
@@ -155,9 +160,12 @@ class KaadasConfigFlow(ConfigFlow, domain=DOMAIN):
             else:
                 return self.async_update_reload_and_abort(entry, data=new_data)
 
+        schema = vol.Schema({vol.Required(CONF_TOKEN): str, vol.Required(CONF_UID): str})
         return self.async_show_form(
             step_id="reauth_confirm",
-            data_schema=vol.Schema({vol.Required(CONF_TOKEN): str}),
+            data_schema=self.add_suggested_values_to_schema(
+                schema, {CONF_UID: entry.data[CONF_UID], **(user_input or {})}
+            ),
             errors=errors,
         )
 

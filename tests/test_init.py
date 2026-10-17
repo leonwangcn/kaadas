@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import timedelta
 
+import pytest
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.components.camera import async_get_image
 from homeassistant.config_entries import ConfigEntryState
@@ -194,12 +195,22 @@ async def test_snapshot_retried_when_not_uploaded(
     assert coordinator.snapshot_event_id == "ev_slow"
 
 
-async def test_auth_failure_starts_reauth(hass, aioclient_mock, responses, config_entry, freezer):
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"code": 444, "msg": "token失效"},
+        # 实测：手机 App 重新登录后旧 token 返回 455，msg 为空
+        {"code": 455, "msg": ""},
+    ],
+)
+async def test_auth_failure_starts_reauth(
+    hass, aioclient_mock, responses, config_entry, freezer, body
+):
     mock_cloud(aioclient_mock, responses)
     await _setup(hass, config_entry)
 
     aioclient_mock.clear_requests()
-    aioclient_mock.post(url(ENDPOINT_OPERATIONS), json={"code": 444, "msg": "token失效"})
+    aioclient_mock.post(url(ENDPOINT_OPERATIONS), json=body)
     await _poll(hass, freezer)
 
     flows = hass.config_entries.flow.async_progress()
@@ -237,7 +248,6 @@ async def test_diagnostics_redacts_secrets(hass, aioclient_mock, responses, conf
 
 async def test_lock_is_read_only(hass, aioclient_mock, responses, config_entry):
     """开锁请求被拒绝；状态先变成 unlocking 再恢复，HomeKit 才不会卡在"正在开锁"。"""
-    import pytest
     from homeassistant.core import Event, callback
     from homeassistant.exceptions import HomeAssistantError
     from homeassistant.helpers.event import async_track_state_change_event

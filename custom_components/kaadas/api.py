@@ -19,8 +19,10 @@ _LOGGER = logging.getLogger(__name__)
 
 _TIMEOUT = ClientTimeout(total=15)
 
-# 抓包里没见过 token 失效时的返回，先按常见写法判断，原始 code/msg 会写进日志方便后续校正
+# token 失效（如手机 App 重新登录后旧 token 作废）时实测返回 code=455、msg 为空，
+# 同时 MQTT 报 Not authorized。其余按常见写法判断，原始 code/msg 会写进日志方便后续校正
 _AUTH_HTTP_STATUS = {401, 403}
+_AUTH_CODES = {"401", "403", "455"}
 _AUTH_MSG_KEYWORDS = ("token", "登录", "失效", "过期", "授权")
 
 
@@ -88,7 +90,7 @@ class KaadasApi:
 
         msg = str(body.get("msg", ""))
         _LOGGER.debug("%s 返回 code=%s msg=%s", path, code, msg)
-        if code in {"401", "403"} or any(k in msg.lower() for k in _AUTH_MSG_KEYWORDS):
+        if code in _AUTH_CODES or any(k in msg.lower() for k in _AUTH_MSG_KEYWORDS):
             raise KaadasAuthError(f"{path}: code={code} msg={msg}")
         raise KaadasError(f"{path}: code={code} msg={msg}")
 
